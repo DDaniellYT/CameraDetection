@@ -45,6 +45,8 @@ options = vision.HandLandmarkerOptions(
 # Connections between the 21 landmarks
 connections = vision.HandLandmarksConnections.HAND_CONNECTIONS
 hand_detector = vision.HandLandmarker.create_from_options(options)
+frame_count = 0
+
 
 at_detector = Detector(
     families= "tag36h11",
@@ -129,11 +131,45 @@ while True:
 
     elif code == 3:
 
+        rgb_frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(
+            image_format = mp.ImageFormat.SRGB,
+            data = rgb_frame
+        )
 
+        timestamp_ms = int(cam.get(cv2.CAP_PROP_POS_MSEC))
+        if "frame_count" not in locals():
+            frame_count = 0
 
+        timestamp_ms = frame_count * 33
+        frame_count += 1
 
+        result = hand_detector.detect_for_video(mp_image, timestamp_ms)
+        for hand_index, landmarks in enumerate(result.hand_landmarks):
+            height, width, _ = frame.shape
 
+            # Draw the connections
+            for connection in connections:
+                start = landmarks[connection.start]
+                end = landmarks[connection.end]
 
+                x1, y1 = int(start.x * width), int(start.y * height)
+                x2, y2 = int(end.x * width), int(end.y * height)
+
+                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+            # Draw the landmark points
+            for point in landmarks:
+                x = int(point.x * width)
+                y = int(point.y * height)
+                cv2.circle(frame, (x, y), 4, (0, 0, 255), -1)
+
+            # Get handedness
+            handedness = result.handedness[hand_index][0].category_name
+
+            wrist = landmarks[0]
+            wrist_x = int(wrist.x * width)
+            wrist_y = int(wrist.y * height)
 
 
     cv2.putText(frame,f"FPS_IN: {round(input_fps)}",fps_pos_in,cv2.FONT_HERSHEY_SIMPLEX, 0.7,color,thickness=thick)
